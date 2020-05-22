@@ -1,16 +1,19 @@
 import { inject } from 'aurelia-framework';
+import { EventAggregator } from 'aurelia-event-aggregator';
 import { WebAPI } from './web-api';
 import { areEqual } from './utility';
 import { Contact } from './interfaces';
+import { ContactViewed, ContactUpdated } from './messages';
 
-@inject(WebAPI)
+@inject(WebAPI, EventAggregator)
 export class ContactDetail {
     public routeConfig;
     public contact: Contact;
     public originalContact: Contact;
 
     constructor(
-        private api: WebAPI) {
+        private api: WebAPI,
+        private ea: EventAggregator) {
     }
 
     public activate(params, routeConfig) {
@@ -20,6 +23,7 @@ export class ContactDetail {
             this.contact = <Contact>contact;
             this.routeConfig.navModel.setTitle(this.contact.firstName);
             this.originalContact = JSON.parse(JSON.stringify(this.contact));
+            this.ea.publish(new ContactViewed(this.contact));
         });
     }
     
@@ -32,12 +36,19 @@ export class ContactDetail {
             this.contact = <Contact>contact;
             this.routeConfig.navModel.setTitle(this.contact.firstName);
             this.originalContact = JSON.parse(JSON.stringify(this.contact));
+            this.ea.publish(new ContactUpdated(this.contact));
         });
     }
 
     public canDeactivate() {
         if (!areEqual(this.originalContact, this.contact)) {
-            return confirm('You have unsaved changes. Are you sure you want to leave?');
+            const result = confirm('You have unsaved changes. Are you sure you want to leave?');
+
+            if (!result) {
+                this.ea.publish(new ContactViewed(this.contact));
+            }
+
+            return result;
         }
 
         return true;
